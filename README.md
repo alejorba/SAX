@@ -1,1 +1,2 @@
-# Symbolic-Aggregate-approXimation
+# Symbolic Aggregate approXimation (SAX) - A Python Implementation
+
