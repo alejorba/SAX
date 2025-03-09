@@ -1,50 +1,109 @@
 import numpy as np
+import scipy.stats as stats
 
-def normalize(series: np.ndarray, epsilon: float = 1e-6) -> np.ndarray:
+class SAX:
     """
-    Normalize a time series to have zero mean and unit variance.
-    If the standard deviation is below `epsilon`, return a constant time series.
-
-    Args:
-        series (np.ndarray): the time series data, a one-dimensional NumPy array.
-        epsilon (float): threshold for standard deviation.
-
-    Return:
-        np.ndarray: a one-dimensional NumPy array of the same shape as the input time series, but normalized.
+    Symbolic Aggregate approXimation (SAX) for time series.
     """
 
-    mean = np.mean(series)
-    std = np.std(series)
+    def __init__(self, w: int , a: int, epsilon: float = 1e-6):
+        """
+        Initializes the SAX transformer.
 
-    if std < epsilon:
-        return np.full_like(series, 0.5)
-    
-    return (series - mean) / std
-    
+        Args:
+            w (int): the number of segments to represent the time series. Must be a positive integer less than the time series's length.
+            a (int): the number of discrete symbols to use in the SAX representation.
+            epsilon (float): threshold for standard deviation.
+        """
+        self.w = w
+        self.a = a
 
-def paa(series: np.ndarray, w: int) -> np.ndarray:
-    """
-    Perform Piecewise Aggregate Approximation (PAA) on a time series.
+        self.epsilon = epsilon
 
-    Args:
-        series (np.ndarray): the time series data, a one-dimensional NumPy array.
-        w (int): the number of segments to represent the time series. Must be a positive integer less than the time series's length.
+        self.breakpoints = self._compute_breakpoints()
+        self.alphabet = np.array([chr(97 + i) for i in range(a)])
+
+        # self.distance_table = self._generate_distance_table()
+
+    def _generate_breakpoints(self) -> np.ndarray:
+        """
+        Generate breakpoints that equally divide the area under a standard normal distribution, to use for mapping PAA coefficients to SAX symbols.
+
+        Returns:
+            np.ndarray: a one-dimensional NumPy array of shape (a-1, ), containing the breakpoints for this vocabulary size.
+        """
+
+        p = np.linspace(0, 1, self.a + 1)[1:-1]
+
+        return stats.norm.ppf(p)
+
+
+    # def _generate_distance_table(self, ):
+
+    def _normalize(self, series: np.ndarray) -> np.ndarray:
+        """
+        Normalize a time series to have zero mean and unit variance.
+        If the standard deviation is below `epsilon`, return a constant time series.
+
+        Args:
+            series (np.ndarray): the time series data, a one-dimensional NumPy array.
+            epsilon (float): threshold for standard deviation.
+
+        Return:
+            np.ndarray: a one-dimensional NumPy array of the same shape as the input time series, but normalized.
+        """
+
+        mean = np.mean(series)
+        std = np.std(series)
+
+        if std < self.epsilon:
+            return np.full_like(series, 0.5)
         
-    Returns:
-        np.ndarray: a one-dimensional NumPy array of shape (w,), the PAA representation of the time series.
-    """
+        return (series - mean) / std
 
-    normalized_series = normalize(series)
+    def _paa(self, series: np.ndarray) -> np.ndarray:
+        """
+        Perform Piecewise Aggregate Approximation (PAA) on a time series.
 
-    print(np.array([np.mean(l) for l in np.array_split(normalized_series, w)]))
+        Args:
+            series (np.ndarray): the time series data, a one-dimensional NumPy array.
 
+        Returns:
+            np.ndarray: a one-dimensional NumPy array of shape (w,), the PAA representation of the time series.
+        """
 
+        normalized_series = self._normalize(series)
 
-# SAX (w)
+        return np.array([np.mean(l) for l in np.array_split(normalized_series, self.w)])
 
-# LookUpTable(a)
+    def transform(self, series: np.ndarray) -> np.ndarray:
+        """
+        Convert a time series into its SAX representation.
 
-# MINDist(x, y, LookUp)
+        Args:
+            series (np.ndarray): the time series data, a one-dimensional NumPy array.
+
+        Returns:
+            np.ndarray: a one-dimensional NumPy array of shape (w,), the SAX representation of the time series.
+        """
+
+        return np.array([self.alphabet[np.searchsorted(self.breakpoints, cbar, side='right')] for cbar in self._paa(series)])
+        
+    def transform_multiple(self, serieses: np.ndarray):
+        """
+        Converts multiple time series into their SAX representations.
+
+        Args:
+            serieses (np.ndarray): the time series data, a two-dimensional NumPy array of shape (n, N).
+
+        Returns:
+            np.ndarray: a two-dimensional NumPy array of shape (w, N), the SAX representation of the time series.
+        """
+
+        return np.array([self.transform(series) for series in serieses])
+
+    # def mindist(self, )
+
 
 # EuclideanDist(x,y)
 
@@ -65,6 +124,3 @@ if __name__ == "__main__":
     cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
 
     print(cc_normal.shape, cc_decreasing.shape, cc_upward.shape)
-
-
-    paa(np.array([1,2,3,4,5,6,7,8,9,10]), 3)
