@@ -162,17 +162,30 @@ if __name__ == "__main__":
     data_path = './data/'
 
     cc_path = data_path + 'CC/synthetic_control.data'
-    cbf_path = data_path + 'CBF/'
-
-    # Paper Recommends 5 <= a <= 8
-    sax = SAX()
-
+    cbf_path_train = data_path + 'CBF/CBF_TRAIN.tsv'
+    cbf_path_test = data_path + 'CBF/CBF_TEST.tsv'
 
     # Clustering Benchmark
+    clustering_params = {'w': 16, 'a': 10}
+
     cc = np.loadtxt(cc_path)
 
     cc_normal = cc[np.random.choice(np.arange(0, 100), size=3, replace=False)]
     cc_decreasing = cc[np.random.choice(np.arange(300, 400), size=3, replace=False)]
     cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
 
-    print(cc_normal.shape, cc_decreasing.shape, cc_upward.shape)
+    # Classification Benchmark
+    # w = n / 4
+    # alphabet size np.arange(5, 11)
+    classification_params = {'w': 32, 'a': 10}
+
+    cc_indices = np.random.permutation(cc.shape[0])
+    cc_train = cc[cc_indices[:int(np.floor(0.8 * cc.shape[0]))]]
+    cc_test = cc[cc_indices[int(np.ceil(0.8 * cc.shape[0])):]]
+
+    # TODO: This is raw data, where would the labels be?
+
+    cbf_train = np.loadtxt(cbf_path_train, delimiter="\t")
+    cbf_test = np.loadtxt(cbf_path_test, delimiter="\t")
+
+    print(cc_train.shape, cc_test.shape, cbf_train.shape, cbf_test.shape)
