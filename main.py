@@ -23,7 +23,8 @@ class SAX:
         self.breakpoints = self._compute_breakpoints()
         self.alphabet = np.array([chr(97 + i) for i in range(a)])
 
-        # self.distance_table = self._generate_distance_table()
+        self.distance_table = self._generate_distance_table()
+
 
     def _generate_breakpoints(self) -> np.ndarray:
         """
@@ -37,8 +38,21 @@ class SAX:
 
         return stats.norm.ppf(p)
 
+    def _generate_distance_table(self) -> np.ndarray:
+        """
+        Generates the MINDist lookup table for computing distances bewteen two time series.
 
-    # def _generate_distance_table(self, ):
+        Returns:
+            np.ndarray: a one-dimensional NumPy array of shape ((a - 1) * (a - 2) // 2,) storing the "upper triangular" lookup table in row-major order.
+            Actually, stricly speaking, the symbol distance lookup table is not upper triangular, it is even more sparse; the distance between the same symbol is zero as well as the distance between "neighboring" symbols (a and b, b and c, etc.).
+        """
+        table = []
+
+        for i in range(self.a - 2):
+            for j in range(i + 2, self.a):
+                table.append(self.breakpoints[j - 1] - self.breakpoints[i])
+
+        return np.array(table)
 
     def _normalize(self, series: np.ndarray) -> np.ndarray:
         """
@@ -75,6 +89,8 @@ class SAX:
         normalized_series = self._normalize(series)
 
         return np.array([np.mean(l) for l in np.array_split(normalized_series, self.w)])
+    
+    # def _symbol_distance(self):
 
     def transform(self, series: np.ndarray) -> np.ndarray:
         """
