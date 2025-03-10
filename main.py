@@ -69,9 +69,6 @@ class SAX:
 
         mean = np.mean(series)
         std = np.std(series)
-
-        if std < self.epsilon:
-            return np.full_like(series, 0.5)
         
         return (series - mean) / std
 
@@ -101,6 +98,9 @@ class SAX:
             np.ndarray: a one-dimensional NumPy array of shape (w,), the SAX representation of the time series.
         """
 
+        if np.std(series) < self.epislon:
+            return np.full(self.w, chr(97 + self.a // 2))
+
         return np.array([self.alphabet[np.searchsorted(self.breakpoints, cbar, side='right')] for cbar in self._paa(series)])
         
     def transform_multiple(self, serieses: np.ndarray):
@@ -125,7 +125,7 @@ class SAX:
             q (np.ndarray): sax representation of the second time series.
 
         Returns:
-            float: 
+            float: computed distance.
         """
 
         d = 0.0
@@ -142,16 +142,31 @@ class SAX:
 
         return np.sqrt(d)
 
-# EuclideanDist(x,y)
+def euclideandist(q: np.ndarray, c: np.ndarray) -> float:
+    """
+    Computes the euclidean distance between two time series q and c.
 
-# Paper Recommends 5 <= a <= 8
+    Args:
+            c (np.ndarray): SAX representation of the first time series.
+            q (np.ndarray): sax representation of the second time series.
+
+        Returns:
+            float: computed distance.
+    """
+
+    return np.sqrt(np.mean(np.substract(q, c) ** 2))
+
+
 
 if __name__ == "__main__":
-
     data_path = './data/'
 
     cc_path = data_path + 'CC/synthetic_control.data'
     cbf_path = data_path + 'CBF/'
+
+    # Paper Recommends 5 <= a <= 8
+    sax = SAX()
+
 
     # Clustering Benchmark
     cc = np.loadtxt(cc_path)
