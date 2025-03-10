@@ -89,8 +89,6 @@ class SAX:
         normalized_series = self._normalize(series)
 
         return np.array([np.mean(l) for l in np.array_split(normalized_series, self.w)])
-    
-    # def _symbol_distance(self):
 
     def transform(self, series: np.ndarray) -> np.ndarray:
         """
@@ -118,8 +116,31 @@ class SAX:
 
         return np.array([self.transform(series) for series in serieses])
 
-    # def mindist(self, )
+    def mindist(self, q: np.ndarray, c: np.ndarray) -> float:
+        """
+        Computes the MINDist between the SAX representations of two time series, q and c.
 
+        Args:
+            c (np.ndarray): SAX representation of the first time series.
+            q (np.ndarray): sax representation of the second time series.
+
+        Returns:
+            float: 
+        """
+
+        d = 0.0
+
+        for sq, sc in zip(q, c):
+            i, j = ord(sq) - 97, ord(sc) - 97
+
+            if i != j:
+                if i > j:
+                    i, j = j, i
+                
+                index = np.sum(self.a - np.arange(i) - 2) + (j - (i + 2))
+                d += self.distance_table[index]**2
+
+        return np.sqrt(d)
 
 # EuclideanDist(x,y)
 
