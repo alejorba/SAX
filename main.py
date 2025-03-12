@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import numpy as np
 from scipy.cluster import hierarchy
 from scipy.spatial.distance import pdist
@@ -60,18 +62,16 @@ class SAX:
     def _normalize(self, series: np.ndarray) -> np.ndarray:
         """
         Normalize a time series to have zero mean and unit variance.
-        If the standard deviation is below `epsilon`, return a constant time series.
 
         Args:
             series (np.ndarray): the time series data, a one-dimensional NumPy array.
-            epsilon (float): threshold for standard deviation.
 
         Return:
             np.ndarray: a one-dimensional NumPy array of the same shape as the input time series, but normalized.
         """
 
         mean = np.mean(series)
-        std = np.std(series)
+        std = np.std(series, ddof=1)
         
         return (series - mean) / std
 
@@ -93,6 +93,7 @@ class SAX:
     def transform(self, series: np.ndarray) -> np.ndarray:
         """
         Convert a time series into its SAX representation.
+        If the standard deviation is below `epsilon`, return a SAX representation with only the middle value of the alphabet.
 
         Args:
             series (np.ndarray): the time series data, a one-dimensional NumPy array.
@@ -114,7 +115,7 @@ class SAX:
             serieses (np.ndarray): the time series data, a two-dimensional NumPy array of shape (n, N).
 
         Returns:
-            np.ndarray: a two-dimensional NumPy array of shape (w, N), the SAX representation of the time series.
+            np.ndarray: a two-dimensional NumPy array of shape (N, w), the SAX representation of the time series.
         """
 
         return np.array([self.transform(series) for series in serieses])
@@ -136,14 +137,23 @@ class SAX:
         for sq, sc in zip(q, c):
             i, j = ord(sq) - 97, ord(sc) - 97
 
-            if i != j:
+            print(i, j)
+
+            if np.abs(i - j) > 1:
                 if i > j:
                     i, j = j, i
                 
                 index = np.sum(self.a - np.arange(i) - 2) + (j - (i + 2))
                 d += self.distance_table[index]**2
+                print(self.distance_table[index]**2)
+            else:
+                print(0)
 
         return np.sqrt(d)
+        # When comparing distances between sequences of the same original length and the same "word" length, multiplying by the factor sqrt(n/w) makes little sense (all of the distance values will be scales by the same coefficient!).
+        # In any case, I believe the paper is either inconsistent with its notation or made a mistake.
+        # As it was presented, MINDIST is calculated based on the symbolic representation of two sequences Q_hat and C_hat (see Eq. 5).
+        # Therefore, MINDIST should not depend on the orignal sequence's length, since it is a parameter of the original sequences Q and C and not of their reprsentations Q_hat and C_hat.
 
 def euclideandist(q: np.ndarray, c: np.ndarray) -> float:
     """
@@ -159,7 +169,22 @@ def euclideandist(q: np.ndarray, c: np.ndarray) -> float:
 
     return np.sqrt(np.mean(np.subtract(q, c) ** 2))
 
+def plot_dendrogram_besides_time_series(linkage_matrix, time_series, ax_dendro, ax_series, title):
+    dendrogram = hierarchy.dendrogram(linkage_matrix, orientation='right', ax=ax_dendro, no_labels=True)
 
+    leaf_order = dendrogram['leaves']
+
+    for i, idx in enumerate(leaf_order):
+        ax_series[i].plot(time_series[idx], color='black', lw=1)
+        ax_series[i].set_yticks([])
+        ax_series[i].set_xticks([])
+        ax_series[i].spines['top'].set_visible('False')
+        ax_series[i].spines['bottom'].set_visible('False')
+        ax_series[i].spines['left'].set_visible('False')
+        ax_series[i].spines['right'].set_visible('False')
+
+    ax_dendro.set_xticks([])
+    ax_dendro.set_title(title)
 
 if __name__ == "__main__":
     data_path = './data/'
@@ -179,11 +204,26 @@ if __name__ == "__main__":
     cc_decreasing = cc[np.random.choice(np.arange(300, 400), size=3, replace=False)]
     cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
 
-    cc_samples = cc_normal + cc_decreasing + cc_upward
+    cc_samples = np.vstack((cc_normal, cc_decreasing, cc_upward))
     cc_samples_symbolic = sax_clustering.transform_multiple(cc_samples)
 
-    sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
     euclidean_linkage = hierarchy.linkage(pdist(cc_samples, metric=euclideandist), method='complete')
+    sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
+
+    fig = plt.figure(figsize=(12,6))
+    gs = gridspec.GridSpec(9, 4, width_ratios=[1, 2, 1, 2])
+
+    ax_dendro_euclidean = plt.subplot(gs[:, 1])
+    ax_series_euclidean = [plt.subplot(gs[i, 0]) for i in range(len(cc_samples))]
+
+    ax_dendro_sax = plt.subplot(gs[:, 3])
+    ax_series_sax = [plt.subplot(gs[i, 2]) for i in range(len(cc_samples))]
+
+    plot_dendrogram_besides_time_series(euclidean_linkage, cc_samples, ax_dendro_euclidean, ax_series_euclidean, 'Euclidean')
+    plot_dendrogram_besides_time_series(sax_linkage, cc_samples, ax_dendro_sax, ax_series_sax, 'SAX')
+
+    plt.tight_layout()
+    plt.show()
 
     # Classification Benchmark
     # w = n / 4
