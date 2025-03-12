@@ -1,5 +1,8 @@
 import numpy as np
-import scipy.stats as stats
+from scipy.cluster import hierarchy
+from scipy.spatial.distance import pdist
+from scipy.stats import norm
+
 
 class SAX:
     """
@@ -20,7 +23,7 @@ class SAX:
 
         self.epsilon = epsilon
 
-        self.breakpoints = self._compute_breakpoints()
+        self.breakpoints = self._generate_breakpoints()
         self.alphabet = np.array([chr(97 + i) for i in range(a)])
 
         self.distance_table = self._generate_distance_table()
@@ -36,7 +39,7 @@ class SAX:
 
         p = np.linspace(0, 1, self.a + 1)[1:-1]
 
-        return stats.norm.ppf(p)
+        return norm.ppf(p)
 
     def _generate_distance_table(self) -> np.ndarray:
         """
@@ -98,7 +101,7 @@ class SAX:
             np.ndarray: a one-dimensional NumPy array of shape (w,), the SAX representation of the time series.
         """
 
-        if np.std(series) < self.epislon:
+        if np.std(series) < self.epsilon:
             return np.full(self.w, chr(97 + self.a // 2))
 
         return np.array([self.alphabet[np.searchsorted(self.breakpoints, cbar, side='right')] for cbar in self._paa(series)])
@@ -154,7 +157,7 @@ def euclideandist(q: np.ndarray, c: np.ndarray) -> float:
             float: computed distance.
     """
 
-    return np.sqrt(np.mean(np.substract(q, c) ** 2))
+    return np.sqrt(np.mean(np.subtract(q, c) ** 2))
 
 
 
@@ -168,24 +171,32 @@ if __name__ == "__main__":
     # Clustering Benchmark
     clustering_params = {'w': 16, 'a': 10}
 
+    sax_clustering = SAX(**clustering_params)
+
     cc = np.loadtxt(cc_path)
 
     cc_normal = cc[np.random.choice(np.arange(0, 100), size=3, replace=False)]
     cc_decreasing = cc[np.random.choice(np.arange(300, 400), size=3, replace=False)]
     cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
 
+    cc_samples = cc_normal + cc_decreasing + cc_upward
+    cc_samples_symbolic = sax_clustering.transform_multiple(cc_samples)
+
+    sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
+    euclidean_linkage = hierarchy.linkage(pdist(cc_samples, metric=euclideandist), method='complete')
+
     # Classification Benchmark
     # w = n / 4
     # alphabet size np.arange(5, 11)
-    classification_params = {'w': 32, 'a': 10}
+    # classification_params = {'w': 32, 'a': 10}
 
-    cc_indices = np.random.permutation(cc.shape[0])
-    cc_train = cc[cc_indices[:int(np.floor(0.8 * cc.shape[0]))]]
-    cc_test = cc[cc_indices[int(np.ceil(0.8 * cc.shape[0])):]]
+    # cc_indices = np.random.permutation(cc.shape[0])
+    # cc_train = cc[cc_indices[:int(np.floor(0.8 * cc.shape[0]))]]
+    # cc_test = cc[cc_indices[int(np.ceil(0.8 * cc.shape[0])):]]
 
-    # TODO: This is raw data, where would the labels be?
+    # # TODO: This is raw data, where would the labels be?
 
-    cbf_train = np.loadtxt(cbf_path_train, delimiter="\t")
-    cbf_test = np.loadtxt(cbf_path_test, delimiter="\t")
+    # cbf_train = np.loadtxt(cbf_path_train, delimiter="\t")
+    # cbf_test = np.loadtxt(cbf_path_test, delimiter="\t")
 
-    print(cc_train.shape, cc_test.shape, cbf_train.shape, cbf_test.shape)
+    # print(cc_train.shape, cc_test.shape, cbf_train.shape, cbf_test.shape)
