@@ -137,17 +137,12 @@ class SAX:
         for sq, sc in zip(q, c):
             i, j = ord(sq) - 97, ord(sc) - 97
 
-            print(i, j)
-
             if np.abs(i - j) > 1:
                 if i > j:
                     i, j = j, i
                 
                 index = np.sum(self.a - np.arange(i) - 2) + (j - (i + 2))
                 d += self.distance_table[index]**2
-                print(self.distance_table[index]**2)
-            else:
-                print(0)
 
         return np.sqrt(d)
         # When comparing distances between sequences of the same original length and the same "word" length, multiplying by the factor sqrt(n/w) makes little sense (all of the distance values will be scales by the same coefficient!).
@@ -169,22 +164,66 @@ def euclideandist(q: np.ndarray, c: np.ndarray) -> float:
 
     return np.sqrt(np.mean(np.subtract(q, c) ** 2))
 
-def plot_dendrogram_besides_time_series(linkage_matrix, time_series, ax_dendro, ax_series, title):
-    dendrogram = hierarchy.dendrogram(linkage_matrix, orientation='right', ax=ax_dendro, no_labels=True)
+def plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, time_series):
+    """
+    Wrapper function to recreate Figure 11 of the paper.
 
-    leaf_order = dendrogram['leaves']
+    Args:
+        linkage_matrix
+        time_series
+    """
+
+    fig = plt.figure(figsize=(12,6))
+    gs = gridspec.GridSpec(9, 4, width_ratios=[1, 2, 1, 2])
+
+    ax_dendro_euclidean = plt.subplot(gs[:, 1])
+    ax_series_euclidean = [plt.subplot(gs[i, 0]) for i in range(len(cc_samples))]
+
+    ax_dendro_sax = plt.subplot(gs[:, 3])
+    ax_series_sax = [plt.subplot(gs[i, 2]) for i in range(len(cc_samples))]
+
+    euclidean_dendrogram = hierarchy.dendrogram(euclidean_linkage, orientation='right', ax=ax_dendro_euclidean, no_labels=True, color_threshold=0, above_threshold_color='black')
+
+    leaf_order = euclidean_dendrogram['leaves']
 
     for i, idx in enumerate(leaf_order):
-        ax_series[i].plot(time_series[idx], color='black', lw=1)
-        ax_series[i].set_yticks([])
-        ax_series[i].set_xticks([])
-        ax_series[i].spines['top'].set_visible('False')
-        ax_series[i].spines['bottom'].set_visible('False')
-        ax_series[i].spines['left'].set_visible('False')
-        ax_series[i].spines['right'].set_visible('False')
+        ax_series_euclidean[i].plot(time_series[idx], color='black', lw=1)
+        ax_series_euclidean[i].set_yticks([])
+        ax_series_euclidean[i].set_xticks([])
+        ax_series_euclidean[i].spines['top'].set_visible(False)
+        ax_series_euclidean[i].spines['bottom'].set_visible(False)
+        ax_series_euclidean[i].spines['left'].set_visible(False)
+        ax_series_euclidean[i].spines['right'].set_visible(False)
 
-    ax_dendro.set_xticks([])
-    ax_dendro.set_title(title)
+    ax_dendro_euclidean.set_xticks([])
+    ax_dendro_euclidean.spines['top'].set_visible(False)
+    ax_dendro_euclidean.spines['bottom'].set_visible(False)
+    ax_dendro_euclidean.spines['left'].set_visible(False)
+    ax_dendro_euclidean.spines['right'].set_visible(False)
+    ax_dendro_euclidean.set_title('Euclidean')
+
+    sax_dendrogram = hierarchy.dendrogram(sax_linkage, orientation='right', ax=ax_dendro_sax, no_labels=True, color_threshold=0, above_threshold_color='black')
+
+    leaf_order = sax_dendrogram['leaves']
+
+    for i, idx in enumerate(leaf_order):
+        ax_series_sax[i].plot(time_series[idx], color='black', lw=1)
+        ax_series_sax[i].set_yticks([])
+        ax_series_sax[i].set_xticks([])
+        ax_series_sax[i].spines['top'].set_visible(False)
+        ax_series_sax[i].spines['bottom'].set_visible(False)
+        ax_series_sax[i].spines['left'].set_visible(False)
+        ax_series_sax[i].spines['right'].set_visible(False)
+
+    ax_dendro_sax.set_xticks([])
+    ax_dendro_sax.spines['top'].set_visible(False)
+    ax_dendro_sax.spines['bottom'].set_visible(False)
+    ax_dendro_sax.spines['left'].set_visible(False)
+    ax_dendro_sax.spines['right'].set_visible(False)
+    ax_dendro_sax.set_title('SAX')
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     data_path = './data/'
@@ -210,20 +249,9 @@ if __name__ == "__main__":
     euclidean_linkage = hierarchy.linkage(pdist(cc_samples, metric=euclideandist), method='complete')
     sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
 
-    fig = plt.figure(figsize=(12,6))
-    gs = gridspec.GridSpec(9, 4, width_ratios=[1, 2, 1, 2])
+    plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, cc_samples)
 
-    ax_dendro_euclidean = plt.subplot(gs[:, 1])
-    ax_series_euclidean = [plt.subplot(gs[i, 0]) for i in range(len(cc_samples))]
-
-    ax_dendro_sax = plt.subplot(gs[:, 3])
-    ax_series_sax = [plt.subplot(gs[i, 2]) for i in range(len(cc_samples))]
-
-    plot_dendrogram_besides_time_series(euclidean_linkage, cc_samples, ax_dendro_euclidean, ax_series_euclidean, 'Euclidean')
-    plot_dendrogram_besides_time_series(sax_linkage, cc_samples, ax_dendro_sax, ax_series_sax, 'SAX')
-
-    plt.tight_layout()
-    plt.show()
+    
 
     # Classification Benchmark
     # w = n / 4
