@@ -229,8 +229,9 @@ if __name__ == "__main__":
     data_path = './data/'
 
     cc_path = data_path + 'CC/synthetic_control.data'
-    cbf_path_train = data_path + 'CBF/CBF_TRAIN.tsv'
-    cbf_path_test = data_path + 'CBF/CBF_TEST.tsv'
+    # I think there was a typo in the original dataset repository, the test dataset is many times larger than the training datset.
+    cbf_path_train = data_path + 'CBF/CBF_TEST.tsv'
+    cbf_path_test = data_path + 'CBF/TRAIN.tsv'
 
     # Clustering Benchmark
     clustering_params = {'w': 16, 'a': 10}
@@ -251,20 +252,23 @@ if __name__ == "__main__":
 
     plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, cc_samples)
 
-    
-
     # Classification Benchmark
     # w = n / 4
-    # alphabet size np.arange(5, 11)
-    # classification_params = {'w': 32, 'a': 10}
+    # a_list = np.arange(5, 11)
 
-    # cc_indices = np.random.permutation(cc.shape[0])
-    # cc_train = cc[cc_indices[:int(np.floor(0.8 * cc.shape[0]))]]
-    # cc_test = cc[cc_indices[int(np.ceil(0.8 * cc.shape[0])):]]
+    # Control Chart Dataset
+    split = 0.8
 
-    # # TODO: This is raw data, where would the labels be?
+    y_cc = np.repeat(np.arange(6), 100)
 
-    # cbf_train = np.loadtxt(cbf_path_train, delimiter="\t")
-    # cbf_test = np.loadtxt(cbf_path_test, delimiter="\t")
+    train_indices = np.array([np.random.choice(np.arange(i*100, (i+1)*100), size=int(split*100), replace=False) for i in range(6)]).flatten()
+    train_mask = np.zeros(cc.shape[0], dtype=bool)
+    train_mask[train_indices] = True
 
-    # print(cc_train.shape, cc_test.shape, cbf_train.shape, cbf_test.shape)
+    X_cc_train, y_cc_train, X_cc_test, y_cc_test = cc[train_mask], y_cc[train_mask], cc[train_mask == False], y_cc[train_mask == False]
+
+    # Cylinder-Bell-Funnel Dataset
+    cbf_train = np.loadtxt(cbf_path_train, delimiter="\t")
+    cbf_test = np.loadtxt(cbf_path_test, delimiter="\t")
+
+    X_cbf_train, y_cbf_train, X_cbf_test, y_cbf_test = cbf_train[:, 1:], cbf_train[:, 0], cbf_test[:, 1:], cbf_test[:, 0]
