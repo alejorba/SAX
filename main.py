@@ -2,9 +2,11 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 from scipy.cluster import hierarchy
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import pdist, squareform
 from scipy.stats import norm
-
+from sklearn.model_selection import LeaveOneOut
+from sklearn.neighbors import KNeighborsClassifier
+from tqdm import tqdm
 
 class SAX:
     """
@@ -155,11 +157,11 @@ def euclideandist(q: np.ndarray, c: np.ndarray) -> float:
     Computes the euclidean distance between two time series q and c.
 
     Args:
-            c (np.ndarray): SAX representation of the first time series.
-            q (np.ndarray): sax representation of the second time series.
+        c (np.ndarray): SAX representation of the first time series.
+        q (np.ndarray): sax representation of the second time series.
 
-        Returns:
-            float: computed distance.
+    Returns:
+        float: computed distance.
     """
 
     return np.sqrt(np.mean(np.subtract(q, c) ** 2))
@@ -169,7 +171,8 @@ def plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, time_se
     Wrapper function to recreate Figure 11 of the paper.
 
     Args:
-        linkage_matrix
+        euclidean_matrix
+        sax_matrix
         time_series
     """
 
@@ -177,10 +180,10 @@ def plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, time_se
     gs = gridspec.GridSpec(9, 4, width_ratios=[1, 2, 1, 2])
 
     ax_dendro_euclidean = plt.subplot(gs[:, 1])
-    ax_series_euclidean = [plt.subplot(gs[i, 0]) for i in range(len(cc_samples))]
+    ax_series_euclidean = [plt.subplot(gs[i, 0]) for i in range(len(time_series))]
 
     ax_dendro_sax = plt.subplot(gs[:, 3])
-    ax_series_sax = [plt.subplot(gs[i, 2]) for i in range(len(cc_samples))]
+    ax_series_sax = [plt.subplot(gs[i, 2]) for i in range(len(time_series))]
 
     euclidean_dendrogram = hierarchy.dendrogram(euclidean_linkage, orientation='right', ax=ax_dendro_euclidean, no_labels=True, color_threshold=0, above_threshold_color='black')
 
@@ -225,13 +228,42 @@ def plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, time_se
     plt.tight_layout()
     plt.show()
 
+def loocv_1nn(X: np.ndarray, y: np.ndarray, D: np.ndarray):
+    """
+    Perform Leave-One-Out Cross-Validation for a 1-NN Classifier with a precomputed distance matrix.
+
+    Args:
+        X (np.ndarray): a two-dimensional NumPy array of shape (N, n) containing the time series data
+        y (np.ndarray): a one-dimensional NumPy array of shape (N, ) containing the labels for the time series.
+        D (np.ndarray): a two-dimensional NumPy array of shape (N, N) corresponding to the precomputed distance matrix.
+
+    Results:
+        accuracy (float)
+    """
+    correct = 0
+
+    loo = LeaveOneOut()
+
+    knn = KNeighborsClassifier(n_neighbors=1, metric='precomputed')
+
+    for i_train, i_test in loo.split(X):
+        D_train = D[np.ix_(i_train, i_train)]
+        D_test = D[np.ix_(i_test, i_train)]
+
+        knn.fit(D_train, y[i_train])
+        pred = knn.predict(D_test)
+
+        if pred == y[i_test[0]]:
+            correct += 1
+
+    return correct / len(y)
+
 if __name__ == "__main__":
     data_path = './data/'
 
     cc_path = data_path + 'CC/synthetic_control.data'
     # I think there was a typo in the original dataset repository, the test dataset is many times larger than the training datset.
-    cbf_path_train = data_path + 'CBF/CBF_TEST.tsv'
-    cbf_path_test = data_path + 'CBF/TRAIN.tsv'
+    cbf_path = data_path + 'CBF/CBF_TEST.tsv'
 
     # Clustering Benchmark
     clustering_params = {'w': 16, 'a': 10}
@@ -240,35 +272,80 @@ if __name__ == "__main__":
 
     cc = np.loadtxt(cc_path)
 
-    cc_normal = cc[np.random.choice(np.arange(0, 100), size=3, replace=False)]
-    cc_decreasing = cc[np.random.choice(np.arange(300, 400), size=3, replace=False)]
-    cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
+    # cc_normal = cc[np.random.choice(np.arange(0, 100), size=3, replace=False)]
+    # cc_decreasing = cc[np.random.choice(np.arange(300, 400), size=3, replace=False)]
+    # cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
 
-    cc_samples = np.vstack((cc_normal, cc_decreasing, cc_upward))
-    cc_samples_symbolic = sax_clustering.transform_multiple(cc_samples)
+    # cc_samples = np.vstack((cc_normal, cc_decreasing, cc_upward))
+    # cc_samples_symbolic = sax_clustering.transform_multiple(cc_samples)
 
-    euclidean_linkage = hierarchy.linkage(pdist(cc_samples, metric=euclideandist), method='complete')
-    sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
+    # euclidean_linkage = hierarchy.linkage(pdist(cc_samples, metric=euclideandist), method='complete')
+    # sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
 
-    plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, cc_samples)
+    # plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, cc_samples)
 
     # Classification Benchmark
-    # w = n / 4
-    # a_list = np.arange(5, 11)
-
     # Control Chart Dataset
-    split = 0.8
-
-    y_cc = np.repeat(np.arange(6), 100)
-
-    train_indices = np.array([np.random.choice(np.arange(i*100, (i+1)*100), size=int(split*100), replace=False) for i in range(6)]).flatten()
-    train_mask = np.zeros(cc.shape[0], dtype=bool)
-    train_mask[train_indices] = True
-
-    X_cc_train, y_cc_train, X_cc_test, y_cc_test = cc[train_mask], y_cc[train_mask], cc[train_mask == False], y_cc[train_mask == False]
+    X_cc, y_cc = cc, np.repeat(np.arange(6), 100)
+    shuffled_indices = np.random.permutation(len(X_cc))
+    X_cc, y_cc = X_cc[shuffled_indices], y_cc[shuffled_indices]
 
     # Cylinder-Bell-Funnel Dataset
-    cbf_train = np.loadtxt(cbf_path_train, delimiter="\t")
-    cbf_test = np.loadtxt(cbf_path_test, delimiter="\t")
+    cbf = np.loadtxt(cbf_path, delimiter="\t")
+    np.random.shuffle(cbf)
+    X_cbf, y_cbf = cbf[:, 1:], cbf[:, 0]
 
-    X_cbf_train, y_cbf_train, X_cbf_test, y_cbf_test = cbf_train[:, 1:], cbf_train[:, 0], cbf_test[:, 1:], cbf_test[:, 0]
+    # Euclidean
+    X_cc_euclidean_D = squareform(pdist(X_cc, metric=euclideandist))
+    X_cbf_euclidean_D = squareform(pdist(X_cbf, metric=euclideandist))
+
+    cc_euclidean_accuracy = loocv_1nn(X_cc, y_cc, X_cc_euclidean_D)
+    cbf_euclidean_accuracy = loocv_1nn(X_cbf, y_cbf, X_cbf_euclidean_D)
+
+    # SAX
+    a_range = range(5,11)
+
+    cc_sax_accuracies = []
+    cbf_sax_accuracies = []
+
+    for a in tqdm(a_range):
+        sax_classification_cc = SAX(X_cc.shape[1] // 4, a)
+
+        X_cc_symbolic = sax_classification_cc.transform_multiple(X_cc)
+        X_cc_sax_D = squareform(pdist(X_cc_symbolic, metric=sax_classification_cc.mindist))
+        
+        cc_sax_accuracies.append(loocv_1nn(X_cc, y_cc, X_cc_sax_D))
+
+        sax_classification_cbf = SAX(X_cbf.shape[1] // 4, a)
+
+        X_cbf_symbolic = sax_classification_cbf.transform_multiple(X_cbf)
+        X_cbf_sax_D = squareform(pdist(X_cbf_symbolic, metric=sax_classification_cbf.mindist))
+        
+        cbf_sax_accuracies.append(loocv_1nn(X_cbf, y_cbf, X_cbf_sax_D))
+
+    cc_sax_accuracies = 1 - np.array(cc_sax_accuracies)
+    cbf_sax_accuracies = 1 - np.array(cbf_sax_accuracies)
+    
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+    axes[0].plot(a_range, cc_sax_accuracies, label='SAX')
+    axes[0].plot(a_range, np.full(cc_sax_accuracies.shape, 1 - cc_euclidean_accuracy), label='Euclidean')
+
+    axes[1].plot(a_range, cbf_sax_accuracies, label='SAX')
+    axes[1].plot(a_range, np.full(cbf_sax_accuracies.shape, 1 - cbf_euclidean_accuracy), label='Euclidean')
+
+    axes[0].set_title("Control Chart")
+    axes[0].set_xlabel("Alphabet Size")
+    axes[0].set_ylabel("Error Rate")
+    axes[0].set_ylim(0, 0.3)
+    axes[0].grid(True, linestyle="--", linewidth=0.5)
+    axes[0].legend()
+
+    axes[1].set_title("Cylinder-Bell-Funnel")
+    axes[1].set_xlabel("Alphabet Size")
+    axes[1].set_ylabel("Error Rate")
+    axes[1].set_ylim(0, 0.3)
+    axes[1].grid(True, linestyle="--", linewidth=0.5)
+    axes[1].legend()
+    
+    plt.show()
