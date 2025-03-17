@@ -272,17 +272,17 @@ if __name__ == "__main__":
 
     cc = np.loadtxt(cc_path)
 
-    # cc_normal = cc[np.random.choice(np.arange(0, 100), size=3, replace=False)]
-    # cc_decreasing = cc[np.random.choice(np.arange(300, 400), size=3, replace=False)]
-    # cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
+    cc_normal = cc[np.random.choice(np.arange(0, 100), size=3, replace=False)]
+    cc_decreasing = cc[np.random.choice(np.arange(300, 400), size=3, replace=False)]
+    cc_upward = cc[np.random.choice(np.arange(400, 500), size=3, replace=False)]
 
-    # cc_samples = np.vstack((cc_normal, cc_decreasing, cc_upward))
-    # cc_samples_symbolic = sax_clustering.transform_multiple(cc_samples)
+    cc_samples = np.vstack((cc_normal, cc_decreasing, cc_upward))
+    cc_samples_symbolic = sax_clustering.transform_multiple(cc_samples)
 
-    # euclidean_linkage = hierarchy.linkage(pdist(cc_samples, metric=euclideandist), method='complete')
-    # sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
+    euclidean_linkage = hierarchy.linkage(pdist(cc_samples, metric=euclideandist), method='complete')
+    sax_linkage = hierarchy.linkage(pdist(cc_samples_symbolic, metric=sax_clustering.mindist), method='complete')
 
-    # plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, cc_samples)
+    plot_dendrograms_besides_time_series(euclidean_linkage, sax_linkage, cc_samples)
 
     # Classification Benchmark
     # Control Chart Dataset
